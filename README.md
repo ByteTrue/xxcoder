@@ -1,6 +1,6 @@
 # xxcoder
 
-Multi-model agent orchestration for Claude Code. Route tasks to GPT, Gemini, Grok, GLM and more via [codeagent-wrapper](https://github.com/ByteTrue/codeagent-wrapper).
+Multi-model agent orchestration for Claude Code. Route tasks to GPT, Gemini, Grok, GLM and more via the included codeagent-wrapper.
 
 ## What is this?
 
@@ -27,7 +27,14 @@ xxcoder requires backend CLIs to communicate with different model providers:
 | [gemini](https://github.com/google-gemini/gemini-cli) | looker | `npm i -g @anthropic-ai/claude-code` |
 | [opencode](https://github.com/opencode-ai/opencode) | explorer, librarian | `go install github.com/opencode-ai/opencode@latest` |
 
-You also need **codeagent-wrapper** — the bridge between Claude Code and backend CLIs. See [codeagent-wrapper](https://github.com/ByteTrue/codeagent-wrapper) for installation.
+You also need **codeagent-wrapper** (included in this repo). Build it with Go 1.21+:
+
+```bash
+cd codeagent-wrapper
+make build
+mkdir -p ~/.claude/bin
+cp codeagent-wrapper ~/.claude/bin/
+```
 
 You only need the backends for the agents you plan to use. Run `npx xxcoder doctor` to check availability.
 
@@ -64,6 +71,7 @@ Lightweight read-only agents (explorer, librarian, looker, planner, reviewer) ru
 xxcoder/
 ├── bin/xx.mjs                  # CLI entry point
 ├── src/commands/               # init, doctor commands
+├── codeagent-wrapper/          # Go source — bridge between Claude Code and backend CLIs
 ├── templates/
 │   ├── agents/xx/              # 7 Claude Code subagent definitions (.md with frontmatter)
 │   ├── prompts/                # 7 codeagent-wrapper role prompts (minimal system prompts)

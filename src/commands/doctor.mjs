@@ -73,7 +73,7 @@ export async function doctor() {
     console.log(`OK  ${wrapperFound}`)
   } else {
     console.log("MISSING  (codeagent-wrapper binary)")
-    console.log("             See project README for installation instructions")
+    console.log("             Build: cd codeagent-wrapper && make build && cp codeagent-wrapper ~/.claude/bin/")
     allOk = false
   }
 
