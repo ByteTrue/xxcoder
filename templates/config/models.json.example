@@ -1,0 +1,68 @@
+{
+  "default_backend": "codex",
+  "default_model": "gpt-5.3-codex",
+  "backends": {
+    "codex": {
+      "base_url": "",
+      "api_key": ""
+    },
+    "claude": {
+      "base_url": "",
+      "api_key": ""
+    },
+    "gemini": {
+      "base_url": "",
+      "api_key": ""
+    },
+    "opencode": {
+      "base_url": "",
+      "api_key": ""
+    }
+  },
+  "agents": {
+    "oracle": {
+      "backend": "codex",
+      "model": "gpt-5.2",
+      "description": "Architecture, code review, complex debugging",
+      "reasoning": "high",
+      "disallowed_tools": ["write", "edit"]
+    },
+    "developer": {
+      "backend": "codex",
+      "model": "gpt-5.3-codex",
+      "description": "Autonomous deep implementation",
+      "reasoning": "high"
+    },
+    "explorer": {
+      "backend": "opencode",
+      "model": "grok-code-fast-1",
+      "description": "Fast codebase search and pattern discovery",
+      "disallowed_tools": ["write", "edit"]
+    },
+    "librarian": {
+      "backend": "opencode",
+      "model": "glm-4.7",
+      "description": "Documentation search, GitHub exploration",
+      "disallowed_tools": ["write", "edit"]
+    },
+    "looker": {
+      "backend": "gemini",
+      "model": "gemini-3-flash",
+      "description": "Screenshot/PDF/image analysis",
+      "disallowed_tools": ["write", "edit"]
+    },
+    "planner": {
+      "backend": "claude",
+      "model": "claude-opus-4-6",
+      "description": "Pre-planning, intent analysis, requirements discovery",
+      "disallowed_tools": ["write", "edit"]
+    },
+    "reviewer": {
+      "backend": "codex",
+      "model": "gpt-5.2",
+      "description": "Plan verification, blocking issue detection",
+      "reasoning": "medium",
+      "disallowed_tools": ["write", "edit"]
+    }
+  }
+}

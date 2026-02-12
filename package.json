@@ -1,0 +1,38 @@
+{
+  "name": "xxcoder",
+  "version": "0.1.0",
+  "description": "Multi-model agent orchestration for Claude Code — route tasks to GPT, Gemini, Grok, GLM via codeagent-wrapper",
+  "type": "module",
+  "bin": {
+    "xxcoder": "./bin/xx.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/"
+  ],
+  "keywords": [
+    "claude-code",
+    "agent",
+    "orchestration",
+    "multi-model",
+    "cli",
+    "codex",
+    "gemini",
+    "opencode",
+    "multi-agent"
+  ],
+  "author": "ByteTrue",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ByteTrue/xxcoder.git"
+  },
+  "homepage": "https://github.com/ByteTrue/xxcoder#readme",
+  "bugs": {
+    "url": "https://github.com/ByteTrue/xxcoder/issues"
+  },
+  "engines": {
+    "node": ">=18.3.0"
+  }
+}
