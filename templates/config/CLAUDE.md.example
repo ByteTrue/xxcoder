@@ -129,12 +129,14 @@ STOP searching when:
 
 **DO NOT over-explore. Time is precious.**
 
-## Implementation Delegation
+## Agent Delegation
 
-### Via codeagent-wrapper (for implementation agents)
+All agents are invoked via `Task(subagent_type="xx-<name>")`. The subagent (Haiku) automatically routes through codeagent-wrapper to the target model configured in `models.json`. You never need to invoke the wrapper directly.
 
-```bash
-codeagent-wrapper --agent <agent_name> - <workdir> <<'EOF'
+### Delegation via Task
+
+```
+Task(subagent_type="xx-developer", description="Implement auth module", prompt="""
 ## Original User Request
 <original request>
 
@@ -148,7 +150,7 @@ codeagent-wrapper --agent <agent_name> - <workdir> <<'EOF'
 
 ## Acceptance Criteria
 <clear completion conditions>
-EOF
+""")
 ```
 
 ### Delegation Prompt Structure (MANDATORY - ALL 6 sections)
@@ -175,8 +177,8 @@ AFTER delegated work completes, ALWAYS verify:
 |-------|---------|------------|
 | xx-explorer | Codebase search, pattern discovery | `Task(subagent_type="xx-explorer")` |
 | xx-librarian | External docs, OSS examples | `Task(subagent_type="xx-librarian")` |
-| xx-oracle | Architecture, debugging consultation | `codeagent-wrapper --agent oracle` |
-| xx-developer | Implementation, coding | `codeagent-wrapper --agent developer` |
+| xx-oracle | Architecture, debugging consultation | `Task(subagent_type="xx-oracle")` |
+| xx-developer | Implementation, coding | `Task(subagent_type="xx-developer")` |
 | xx-looker | Screenshot/PDF/image analysis | `Task(subagent_type="xx-looker")` |
 | xx-planner | Pre-planning, intent analysis | `Task(subagent_type="xx-planner")` |
 | xx-reviewer | Plan verification | `Task(subagent_type="xx-reviewer")` |

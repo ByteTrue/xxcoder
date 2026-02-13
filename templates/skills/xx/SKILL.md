@@ -47,37 +47,18 @@ This skill is **routing-first**, not a mandatory `explore → oracle → develop
 
 ## Agent Invocation
 
-### Via Claude Code Task tool (for exploration/analysis - read-only agents)
+### Via Claude Code Task tool (all agents)
+
+All agents are invoked via the Task tool. The subagent (Haiku) automatically routes through codeagent-wrapper to the target model when needed.
 
 ```
 Task(subagent_type="xx-explorer", run_in_background=true, description="Find auth implementations", prompt="...")
 Task(subagent_type="xx-librarian", run_in_background=true, description="Find JWT docs", prompt="...")
+Task(subagent_type="xx-developer", description="Fix type error", prompt="...")
+Task(subagent_type="xx-oracle", description="Analyze tradeoffs", prompt="...")
 ```
 
 Collect results: `TaskOutput(task_id="...")`
-
-### Via codeagent-wrapper (for implementation and heavy reasoning)
-
-```bash
-codeagent-wrapper --agent <agent_name> - <workdir> <<'EOF'
-## Original User Request
-<original request>
-
-## Context Pack (include anything relevant; write "None" if absent)
-- Explore output: <...>
-- Librarian output: <...>
-- Oracle output: <...>
-- Known constraints: <tests to run, repo conventions, etc.>
-
-## Current Task
-<specific task description>
-
-## Acceptance Criteria
-<clear completion conditions>
-EOF
-```
-
-Execute in Bash tool, timeout 2h.
 
 ## Agent Directory
 
@@ -88,8 +69,8 @@ Execute in Bash tool, timeout 2h.
 | `xx-looker` | Screenshot/PDF/image analysis | `Task(subagent_type="xx-looker")` |
 | `xx-planner` | Pre-planning for complex tasks | `Task(subagent_type="xx-planner")` |
 | `xx-reviewer` | Plan verification before execution | `Task(subagent_type="xx-reviewer")` |
-| `xx-oracle` | Risky changes, tradeoffs, unclear requirements | `codeagent-wrapper --agent oracle` |
-| `xx-developer` | Backend/logic code implementation | `codeagent-wrapper --agent developer` |
+| `xx-oracle` | Risky changes, tradeoffs, unclear requirements | `Task(subagent_type="xx-oracle")` |
+| `xx-developer` | Backend/logic code implementation | `Task(subagent_type="xx-developer")` |
 
 ## Examples
 
@@ -99,8 +80,8 @@ User: /xx fix this type error at src/foo.ts:123
 Sisyphus executes:
 
 **Single step: xx-developer** (location known; low-risk change)
-```bash
-codeagent-wrapper --agent developer - /path/to/project <<'EOF'
+```
+Task(subagent_type="xx-developer", description="Fix type error at src/foo.ts:123", prompt="""
 ## Original User Request
 fix this type error at src/foo.ts:123
 
@@ -114,7 +95,7 @@ Fix the type error at src/foo.ts:123 with the minimal targeted change.
 
 ## Acceptance Criteria
 Typecheck passes; no unrelated refactors.
-EOF
+""")
 ```
 </example>
 
@@ -129,8 +110,8 @@ Task(subagent_type="xx-explorer", description="Locate bug", prompt="Locate bug p
 ```
 
 **Step 2: xx-developer** (fix it, using explore output)
-```bash
-codeagent-wrapper --agent developer - /path/to/project <<'EOF'
+```
+Task(subagent_type="xx-developer", description="Fix the bug", prompt="""
 ## Original User Request
 analyze this bug and fix it
 
@@ -142,7 +123,7 @@ Implement the minimal fix; run the narrowest relevant tests.
 
 ## Acceptance Criteria
 Fix is implemented; tests pass; no regressions.
-EOF
+""")
 ```
 </example>
 
@@ -159,8 +140,8 @@ Task(subagent_type="xx-librarian", run_in_background=true, description="Find lib
 ```
 
 **Step 2: xx-oracle** (if multi-file/risky)
-```bash
-codeagent-wrapper --agent oracle - /path/to/project <<'EOF'
+```
+Task(subagent_type="xx-oracle", description="Analyze feature X implementation plan", prompt="""
 ## Original User Request
 add feature X using library Y
 
@@ -173,14 +154,14 @@ Propose minimal implementation plan; call out risks.
 
 ## Acceptance Criteria
 Concrete plan; files to change; risk/edge cases.
-EOF
+""")
 ```
 
 **Step 3: xx-developer** (implement)
-```bash
-codeagent-wrapper --agent developer - /path/to/project <<'EOF'
+```
+Task(subagent_type="xx-developer", description="Implement feature X", prompt="""
 ...full context from all prior steps...
-EOF
+""")
 ```
 </example>
 
@@ -193,6 +174,6 @@ EOF
 
 ## Architecture Notes
 
-- `agents/xx/*.md` are Claude Code subagent definitions, used when an agent is invoked via `Task(subagent_type="xx-<name>")`. The frontmatter controls model, tools, and turn limits within the Claude Code Task framework.
-- `prompts/*.md` are codeagent-wrapper role prompts, used when an agent is invoked via `codeagent-wrapper --agent <name>`. The wrapper controls model selection and tool access via `models.json`.
-- The same logical agent may have both paths. Task subagent is used for lightweight/read-only work or when the agent needs to spawn sub-tasks. Wrapper is used when a strong external model is required (oracle, developer).
+- All agents are invoked via `Task(subagent_type="xx-<name>")`. The subagent (Haiku) automatically routes through codeagent-wrapper to the target model based on `models.json` configuration.
+- `agents/xx/*.md` are Claude Code subagent definitions. The frontmatter controls model, tools, and turn limits within the Claude Code Task framework.
+- `prompts/*.md` are codeagent-wrapper role prompts. The wrapper controls model selection and tool access via `models.json`.

@@ -10,6 +10,7 @@
     "bin/",
     "src/",
     "templates/",
+    "binaries/",
     "codeagent-wrapper/"
   ],
   "keywords": [
@@ -35,5 +36,11 @@
   },
   "engines": {
     "node": ">=18.3.0"
+  },
+  "dependencies": {
+    "ansis": "^4.2.0",
+    "cac": "^6.7.14",
+    "inquirer": "^13.2.2",
+    "ora": "^9.3.0"
   }
 }

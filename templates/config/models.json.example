@@ -23,44 +23,44 @@
     "oracle": {
       "backend": "codex",
       "model": "gpt-5.2",
-      "description": "Architecture, code review, complex debugging",
+      "prompt_file": "~/.codeagent/agents/oracle.md",
       "reasoning": "high",
       "disallowed_tools": ["write", "edit"]
     },
     "developer": {
       "backend": "codex",
       "model": "gpt-5.3-codex",
-      "description": "Autonomous deep implementation",
+      "prompt_file": "~/.codeagent/agents/developer.md",
       "reasoning": "high"
     },
     "explorer": {
       "backend": "opencode",
       "model": "grok-code-fast-1",
-      "description": "Fast codebase search and pattern discovery",
+      "prompt_file": "~/.codeagent/agents/explorer.md",
       "disallowed_tools": ["write", "edit"]
     },
     "librarian": {
       "backend": "opencode",
       "model": "glm-4.7",
-      "description": "Documentation search, GitHub exploration",
+      "prompt_file": "~/.codeagent/agents/librarian.md",
       "disallowed_tools": ["write", "edit"]
     },
     "looker": {
       "backend": "gemini",
       "model": "gemini-3-flash",
-      "description": "Screenshot/PDF/image analysis",
+      "prompt_file": "~/.codeagent/agents/looker.md",
       "disallowed_tools": ["write", "edit"]
     },
     "planner": {
       "backend": "claude",
       "model": "claude-opus-4-6",
-      "description": "Pre-planning, intent analysis, requirements discovery",
+      "prompt_file": "~/.codeagent/agents/planner.md",
       "disallowed_tools": ["write", "edit"]
     },
     "reviewer": {
       "backend": "codex",
       "model": "gpt-5.2",
-      "description": "Plan verification, blocking issue detection",
+      "prompt_file": "~/.codeagent/agents/reviewer.md",
       "reasoning": "medium",
       "disallowed_tools": ["write", "edit"]
     }

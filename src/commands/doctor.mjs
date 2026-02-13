@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { homedir } from "node:os"
+import ansis from "ansis"
+import ora from "ora"
 
 const BACKENDS = [
   {
@@ -34,12 +36,13 @@ const BACKENDS = [
 ]
 
 export async function doctor() {
-  console.log("xxcoder doctor - Backend CLI availability check\n")
+  console.log(ansis.cyan("\nxxcoder doctor") + " - Backend CLI availability check\n")
 
-  let allOk = true
+  const results = []
 
+  // Check each backend CLI
   for (const backend of BACKENDS) {
-    process.stdout.write(`  ${backend.name.padEnd(10)} `)
+    const spinner = ora({ text: `Checking ${backend.name}...`, indent: 2 }).start()
     try {
       const output = execFileSync(backend.check[0], backend.check.slice(1), {
         timeout: 5000,
@@ -47,22 +50,25 @@ export async function doctor() {
         stdio: ["pipe", "pipe", "pipe"],
       }).trim()
       const version = output.split("\n")[0].slice(0, 40)
-      console.log(`OK  ${version}`)
+      spinner.succeed(ansis.green(`${backend.name.padEnd(10)} OK`) + `  ${version}`)
+      results.push({ name: backend.name, status: "ok", detail: version })
     } catch (error) {
       if (error.code === "ENOENT") {
-        console.log(`MISSING  (${backend.purpose})`)
-        console.log(`             Install: ${backend.install}`)
+        spinner.fail(ansis.red(`${backend.name.padEnd(10)} MISSING`) + `  (${backend.purpose})`)
+        console.log(ansis.dim(`             Install: ${backend.install}`))
+        results.push({ name: backend.name, status: "missing", detail: backend.purpose })
       } else if (error.code === "ETIMEDOUT" || error.killed) {
-        console.log(`TIMEOUT  (${backend.purpose})`)
+        spinner.warn(ansis.yellow(`${backend.name.padEnd(10)} TIMEOUT`) + `  (${backend.purpose})`)
+        results.push({ name: backend.name, status: "timeout", detail: backend.purpose })
       } else {
-        console.log(`ERROR  (${backend.purpose}: ${error.message})`)
+        spinner.fail(ansis.red(`${backend.name.padEnd(10)} ERROR`) + `  (${error.message})`)
+        results.push({ name: backend.name, status: "error", detail: error.message })
       }
-      allOk = false
     }
   }
 
   // Check codeagent-wrapper
-  process.stdout.write(`  ${"wrapper".padEnd(10)} `)
+  const wrapperSpinner = ora({ text: "Checking wrapper...", indent: 2 }).start()
   const home = homedir()
   const wrapperPaths = [
     `${home}/.claude/bin/codeagent-wrapper`,
@@ -70,18 +76,32 @@ export async function doctor() {
   ]
   const wrapperFound = wrapperPaths.find((p) => existsSync(p))
   if (wrapperFound) {
-    console.log(`OK  ${wrapperFound}`)
+    wrapperSpinner.succeed(ansis.green(`${"wrapper".padEnd(10)} OK`) + `  ${wrapperFound}`)
+    results.push({ name: "wrapper", status: "ok", detail: wrapperFound })
   } else {
-    console.log("MISSING  (codeagent-wrapper binary)")
-    console.log("             Build: cd codeagent-wrapper && make build && cp codeagent-wrapper ~/.claude/bin/")
-    allOk = false
+    wrapperSpinner.fail(ansis.red(`${"wrapper".padEnd(10)} MISSING`) + "  (codeagent-wrapper binary)")
+    console.log(ansis.dim("             Build: cd codeagent-wrapper && make build && cp codeagent-wrapper ~/.claude/bin/"))
+    results.push({ name: "wrapper", status: "missing", detail: "codeagent-wrapper binary" })
+  }
+
+  // Summary table
+  const allOk = results.every((r) => r.status === "ok")
+  console.log(ansis.cyan("\n  Summary:"))
+  for (const r of results) {
+    const icon = r.status === "ok" ? ansis.green("✓") : ansis.red("✗")
+    const name = r.name.padEnd(10)
+    const statusLabel =
+      r.status === "ok" ? ansis.green("available") :
+      r.status === "timeout" ? ansis.yellow("timeout") :
+      ansis.red(r.status)
+    console.log(`  ${icon} ${name} ${statusLabel}`)
   }
 
   console.log()
   if (allOk) {
-    console.log("All backends available.")
+    console.log(ansis.green("  All backends available."))
   } else {
-    console.log("Some backends are missing. Agents using those backends will not work.")
-    console.log("Install missing CLIs and run 'npx xxcoder doctor' again.")
+    console.log(ansis.yellow("  Some backends are missing. Agents using those backends will not work."))
+    console.log(ansis.dim("  Install missing CLIs and run 'npx xxcoder doctor' again."))
   }
 }

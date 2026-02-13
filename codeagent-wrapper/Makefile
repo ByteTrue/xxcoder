@@ -10,7 +10,7 @@ STATICCHECK_VERSION := v0.4.7
 GOLANGCI_LINT := $(TOOLS_BIN)/golangci-lint
 STATICCHECK := $(TOOLS_BIN)/staticcheck
 
-.PHONY: build test lint clean install
+.PHONY: build test lint clean install cross-build
 
 build:
 	$(GO) build $(LDFLAGS) -o codeagent-wrapper ./cmd/codeagent-wrapper
@@ -35,3 +35,6 @@ clean:
 
 install:
 	$(GO) install $(LDFLAGS) ./cmd/codeagent-wrapper
+
+cross-build:
+	bash build-all.sh
