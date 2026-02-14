@@ -35,13 +35,13 @@
     },
     "explorer": {
       "backend": "opencode",
-      "model": "grok-code-fast-1",
+      "model": "opencode/kimi-k2.5-free",
       "prompt_file": "~/.codeagent/agents/explorer.md",
       "disallowed_tools": ["write", "edit"]
     },
     "librarian": {
       "backend": "opencode",
-      "model": "glm-4.7",
+      "model": "opencode/kimi-k2.5-free",
       "prompt_file": "~/.codeagent/agents/librarian.md",
       "disallowed_tools": ["write", "edit"]
     },

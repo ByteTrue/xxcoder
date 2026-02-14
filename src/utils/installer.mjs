@@ -1,7 +1,87 @@
 import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync } from "node:fs"
-import { join, dirname } from "node:path"
+import { join, dirname, delimiter } from "node:path"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
+
+function detectExecutableFormat(filePath) {
+  const data = readFileSync(filePath)
+  if (data.length < 4) return "unknown"
+
+  // PE/COFF (Windows)
+  if (data[0] === 0x4d && data[1] === 0x5a) return "pe"
+
+  // ELF (Linux)
+  if (data[0] === 0x7f && data[1] === 0x45 && data[2] === 0x4c && data[3] === 0x46) return "elf"
+
+  // Mach-O + fat binaries (macOS)
+  const hex = Buffer.from(data.subarray(0, 4)).toString("hex")
+  const machoMagics = new Set([
+    "feedface", "feedfacf", "cefaedfe", "cffaedfe",
+    "cafebabe", "bebafeca",
+  ])
+  if (machoMagics.has(hex)) return "macho"
+
+  return "unknown"
+}
+
+function expectedExecutableFormat(platform) {
+  if (platform === "win32") return "pe"
+  if (platform === "linux") return "elf"
+  if (platform === "darwin") return "macho"
+  return "unknown"
+}
+
+function assertBinaryFormatForPlatform(filePath, platform) {
+  const expected = expectedExecutableFormat(platform)
+  const actual = detectExecutableFormat(filePath)
+  if (expected !== "unknown" && actual !== expected) {
+    throw new Error(
+      `Bundled wrapper binary format mismatch for ${platform}: expected ${expected}, got ${actual}. ` +
+      `Please rebuild/repackage binaries. Source: ${filePath}`
+    )
+  }
+}
+
+function findWrapperInPath(platform) {
+  const pathValue = process.env.PATH || ""
+  if (!pathValue) return ""
+  const entries = pathValue.split(delimiter).filter(Boolean)
+  const names = platform === "win32"
+    ? ["codeagent-wrapper.exe", "codeagent-wrapper"]
+    : ["codeagent-wrapper"]
+
+  for (const entry of entries) {
+    for (const name of names) {
+      const candidate = join(entry, name)
+      if (existsSync(candidate)) return candidate
+    }
+  }
+  return ""
+}
+
+function resolveWrapperSourceBinary({ packageRoot, platform, binaryName }) {
+  const expected = expectedExecutableFormat(platform)
+  const checked = []
+  const candidates = [
+    join(packageRoot, "binaries", binaryName),
+    join(packageRoot, "codeagent-wrapper", platform === "win32" ? "codeagent-wrapper.exe" : "codeagent-wrapper"),
+    findWrapperInPath(platform),
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) continue
+    const actual = detectExecutableFormat(candidate)
+    checked.push({ candidate, actual })
+    if (expected === "unknown" || actual === expected) return candidate
+  }
+
+  const details = checked.length > 0
+    ? checked.map((x) => `${x.candidate} (detected ${x.actual})`).join("; ")
+    : "none found"
+  throw new Error(
+    `No usable wrapper binary for ${platform}. Expected format: ${expected}. Checked: ${details}`
+  )
+}
 
 /**
  * Recursively copy a directory, optionally overwriting existing files.
@@ -72,13 +152,6 @@ export function getProjectInstallDir() {
 }
 
 /**
- * Check if xxcoder files already exist in the target directory.
- */
-export function hasExistingInstall(dir) {
-  return existsSync(join(dir, "agents", "xx")) || existsSync(join(dir, "skills", "xx"))
-}
-
-/**
  * Resolve the package root directory.
  */
 export function getPackageRoot() {
@@ -105,10 +178,9 @@ export function installWrapper({ force = false, silent = false } = {}) {
     throw new Error(`Unsupported platform: ${platform}/${arch}`)
   }
 
-  const srcBinary = join(getPackageRoot(), "binaries", binaryName)
-  if (!existsSync(srcBinary)) {
-    throw new Error(`Binary not found: ${srcBinary}`)
-  }
+  const packageRoot = getPackageRoot()
+  const srcBinary = resolveWrapperSourceBinary({ packageRoot, platform, binaryName })
+  assertBinaryFormatForPlatform(srcBinary, platform)
 
   const destDir = join(homedir(), ".claude", "bin")
   const destName = platform === "win32" ? "codeagent-wrapper.exe" : "codeagent-wrapper"
@@ -128,42 +200,14 @@ export function installWrapper({ force = false, silent = false } = {}) {
   return { copied: 1, skipped: 0 }
 }
 
-const XXCODER_MARKER = "<!-- xxcoder:start -->"
-const XXCODER_MARKER_END = "<!-- xxcoder:end -->"
-
 /**
- * Install CLAUDE.md — merge with existing content if present.
- * Uses markers to identify xxcoder's section for idempotent updates.
+ * Install CLAUDE.md and always overwrite the destination file.
  */
-export function installClaudeMd(src, dest, { force = false, silent = false } = {}) {
+export function installClaudeMd(src, dest, { silent = false } = {}) {
   const content = readFileSync(src, "utf-8")
-  const wrapped = `${XXCODER_MARKER}\n${content}\n${XXCODER_MARKER_END}`
-
-  if (!existsSync(dest)) {
-    mkdirSync(dirname(dest), { recursive: true })
-    writeFileSync(dest, wrapped, "utf-8")
-    if (!silent) console.log(`  create: ${dest}`)
-    return { copied: 1, skipped: 0 }
-  }
-
-  const existing = readFileSync(dest, "utf-8")
-
-  // Already has xxcoder section — replace it if force, skip otherwise
-  if (existing.includes(XXCODER_MARKER)) {
-    if (!force) {
-      if (!silent) console.log(`  skip (exists): ${dest}`)
-      return { copied: 0, skipped: 1 }
-    }
-    const re = new RegExp(`${XXCODER_MARKER}[\\s\\S]*?${XXCODER_MARKER_END}`)
-    const updated = existing.replace(re, wrapped)
-    writeFileSync(dest, updated, "utf-8")
-    if (!silent) console.log(`  update: ${dest}`)
-    return { copied: 1, skipped: 0 }
-  }
-
-  // Existing CLAUDE.md without xxcoder section — append
-  const merged = existing.trimEnd() + "\n\n" + wrapped + "\n"
-  writeFileSync(dest, merged, "utf-8")
-  if (!silent) console.log(`  append: ${dest}`)
+  const action = existsSync(dest) ? "overwrite" : "create"
+  mkdirSync(dirname(dest), { recursive: true })
+  writeFileSync(dest, content, "utf-8")
+  if (!silent) console.log(`  ${action}: ${dest}`)
   return { copied: 1, skipped: 0 }
 }

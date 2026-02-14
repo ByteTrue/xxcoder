@@ -1,9 +1,10 @@
-import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { homedir } from "node:os"
 
 const XXCODER_MARKER = "<!-- xxcoder:start -->"
 const XXCODER_MARKER_END = "<!-- xxcoder:end -->"
+const XXCODER_TITLE = "# XX Multi-Agent Orchestration"
 
 const WRAPPER_AGENT_FILES = [
   "developer.md",
@@ -25,7 +26,7 @@ export function hasXxcoderInstall(dir) {
   const claudeMd = join(dir, "CLAUDE.md")
   if (existsSync(claudeMd)) {
     const content = readFileSync(claudeMd, "utf-8")
-    if (content.includes(XXCODER_MARKER)) return true
+    if (content.includes(XXCODER_MARKER) || content.startsWith(XXCODER_TITLE)) return true
   }
   return false
 }
@@ -64,25 +65,32 @@ export function uninstallDir(dir) {
 }
 
 /**
- * Remove xxcoder markers from CLAUDE.md, preserving user content.
- * If file becomes empty after removal, delete it entirely.
+ * Remove xxcoder CLAUDE.md content.
+ * Supports legacy marker-based format and current full-file overwrite format.
  * Returns { removed: 0|1, skipped: 0|1 }.
  */
 export function uninstallClaudeMd(filePath) {
   if (!existsSync(filePath)) return { removed: 0, skipped: 1 }
 
   const content = readFileSync(filePath, "utf-8")
-  if (!content.includes(XXCODER_MARKER)) return { removed: 0, skipped: 1 }
+  if (content.includes(XXCODER_MARKER)) {
+    const re = new RegExp(`\\n?${XXCODER_MARKER}[\\s\\S]*?${XXCODER_MARKER_END}\\n?`)
+    const cleaned = content.replace(re, "").trim()
 
-  const re = new RegExp(`\\n?${XXCODER_MARKER}[\\s\\S]*?${XXCODER_MARKER_END}\\n?`)
-  const cleaned = content.replace(re, "").trim()
-
-  if (!cleaned) {
-    rmSync(filePath)
-  } else {
-    writeFileSync(filePath, cleaned + "\n", "utf-8")
+    if (!cleaned) {
+      rmSync(filePath)
+    } else {
+      writeFileSync(filePath, cleaned + "\n", "utf-8")
+    }
+    return { removed: 1, skipped: 0 }
   }
-  return { removed: 1, skipped: 0 }
+
+  if (content.startsWith(XXCODER_TITLE)) {
+    rmSync(filePath)
+    return { removed: 1, skipped: 0 }
+  }
+
+  return { removed: 0, skipped: 1 }
 }
 
 /**

@@ -9,7 +9,6 @@ import {
   getTemplatesDir,
   getDefaultInstallDir,
   getProjectInstallDir,
-  hasExistingInstall,
   installWrapper,
   installClaudeMd,
 } from "../utils/installer.mjs"
@@ -29,7 +28,7 @@ async function promptInstallDir() {
     {
       type: "list",
       name: "location",
-      message: "Where would you like to install xxcoder?",
+      message: "Where would you like to install xxcoder? (existing xxcoder files will be overwritten)",
       choices: [
         {
           name: `User directory  ${ansis.dim("(~/.claude)")} ${ansis.dim("— global, all projects")}`,
@@ -61,31 +60,19 @@ async function promptInstallDir() {
   return customPath.trim()
 }
 
-async function confirmOverwrite(dest) {
-  const { proceed } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "proceed",
-      message: ansis.yellow(`Existing xxcoder files found in ${dest}. Overwrite?`),
-      default: false,
-    },
-  ])
-  return proceed
-}
-
 async function runStep(label, fn) {
   const spinner = ora(label).start()
   try {
     const result = await fn()
     spinner.succeed()
-    return result
+    return { ...result, ok: true, label }
   } catch (err) {
     spinner.fail(ansis.red(`${label} — ${err.message}`))
-    return { copied: 0, skipped: 0 }
+    return { copied: 0, skipped: 0, ok: false, label, error: err.message }
   }
 }
 
-export async function init({ force = false, installDir = "", interactive = true } = {}) {
+export async function init({ installDir = "", interactive = true } = {}) {
   printBanner()
 
   // Resolve destination
@@ -96,27 +83,19 @@ export async function init({ force = false, installDir = "", interactive = true 
     dest = getDefaultInstallDir()
   }
 
-  // Force overwrite confirmation
-  if (!force && interactive && hasExistingInstall(dest)) {
-    const proceed = await confirmOverwrite(dest)
-    if (!proceed) {
-      console.log(ansis.dim("\nInstallation cancelled."))
-      return
-    }
-    force = true
-  }
-
-  console.log(ansis.dim(`\nInstalling to ${ansis.cyan(dest)}\n`))
+  console.log(ansis.dim(`\nInstalling to ${ansis.cyan(dest)} (overwrite mode)\n`))
 
   const templates = getTemplatesDir()
   const codeagentDir = join(homedir(), ".codeagent")
-  const opts = { force, silent: true }
+  const opts = { force: true, silent: true }
   let totalCopied = 0
   let totalSkipped = 0
+  const failures = []
 
   function addCounts(r) {
     totalCopied += r.copied
     totalSkipped += r.skipped
+    if (r.ok === false) failures.push(r)
   }
 
   // 1. Agent definitions
@@ -158,7 +137,7 @@ export async function init({ force = false, installDir = "", interactive = true 
     )
   )
 
-  // 6. CLAUDE.md (merge with existing if present)
+  // 6. CLAUDE.md (always overwrite)
   addCounts(
     await runStep("Installing CLAUDE.md", () =>
       installClaudeMd(
@@ -178,13 +157,25 @@ export async function init({ force = false, installDir = "", interactive = true 
 
   // Summary
   console.log()
-  console.log(ansis.bold("  Installation complete!\n"))
+  if (failures.length > 0) {
+    console.log(ansis.bold.yellow("  Installation completed with errors.\n"))
+  } else {
+    console.log(ansis.bold("  Installation complete!\n"))
+  }
   console.log(`  Path:    ${ansis.cyan(dest)}`)
   console.log(`  Files:   ${ansis.green(`${totalCopied} installed`)}${totalSkipped ? ansis.dim(`, ${totalSkipped} skipped`) : ""}`)
+  if (failures.length > 0) {
+    console.log(ansis.red(`  Failed steps: ${failures.length}`))
+    for (const failure of failures) {
+      console.log(ansis.red(`  - ${failure.label}: ${failure.error}`))
+    }
+  }
   console.log()
   console.log(ansis.yellow("  Next steps:"))
-  console.log(ansis.yellow("  1.") + ` Run ${ansis.cyan("npx xxcoder doctor")} to check backend CLIs`)
+  console.log(ansis.yellow("  1.") + ` Run ${ansis.cyan("xxcoder doctor")} to check backend CLIs`)
   console.log(ansis.yellow("  2.") + ` Edit ${ansis.dim("~/.codeagent/models.json")} and configure API keys for your backends`)
-  console.log(ansis.yellow("  3.") + ` Start Claude Code and use ${ansis.cyan("/xx")} to activate orchestration`)
+  console.log(ansis.yellow("  3.") + " Restart Claude Code to reload updated CLAUDE.md, skills, and subagents")
+  console.log(ansis.yellow("  4.") + " Use Claude Code normally (orchestration is automatic for non-trivial requests; /xx is optional)")
+  console.log(ansis.yellow("  5.") + ` If wrapper command is not in PATH, use ${ansis.dim("~/.claude/bin/codeagent-wrapper")} (subagents now auto-detect this path)`)
   console.log()
 }

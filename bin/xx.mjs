@@ -16,8 +16,7 @@ const cli = cac("xxcoder")
 let commandMatched = false
 
 cli
-  .command("init", "Install agent templates", { allowUnknownOptions: false })
-  .option("--force", "Overwrite existing files")
+  .command("init", "Install/overwrite agent templates", { allowUnknownOptions: false })
   .option("--install-dir <path>", "Custom installation directory")
   .option("--user", "Install to ~/.claude")
   .option("--project", "Install to ./.claude")
@@ -26,8 +25,8 @@ cli
     let installDir = options.installDir || ""
     if (options.user) installDir = join(homedir(), ".claude")
     if (options.project) installDir = join(process.cwd(), ".claude")
-    const interactive = !installDir && !options.force
-    await init({ force: options.force, installDir, interactive })
+    const interactive = !installDir
+    await init({ installDir, interactive })
   })
 
 cli

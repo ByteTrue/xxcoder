@@ -21,7 +21,7 @@ export async function interactive() {
       message: "选择操作:",
       choices: [
         {
-          name: "安装 xxcoder — 安装 agent 模板和配置到 Claude Code",
+          name: "安装 xxcoder — 覆盖安装 agent 模板和配置到 Claude Code",
           value: "init",
         },
         {
