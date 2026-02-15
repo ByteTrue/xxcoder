@@ -1,6 +1,14 @@
 {
   "default_backend": "codex",
   "default_model": "gpt-5.3-codex",
+  "wrapper": {
+    "timeout_ms": 1200000,
+    "no_output_timeout_ms": 900000,
+    "backend_no_output_timeout_ms": {
+      "opencode": 90000
+    },
+    "keep_logs": false
+  },
   "backends": {
     "codex": {
       "base_url": "",
@@ -52,8 +60,8 @@
       "disallowed_tools": ["write", "edit"]
     },
     "planner": {
-      "backend": "claude",
-      "model": "claude-opus-4-6",
+      "backend": "codex",
+      "model": "gpt-5.2",
       "prompt_file": "~/.codeagent/agents/planner.md",
       "disallowed_tools": ["write", "edit"]
     },

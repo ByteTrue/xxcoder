@@ -13,7 +13,7 @@ xxcoder adds a team of specialized AI agents to your Claude Code session. Instea
 | xx-explorer | opencode/kimi-k2.5-free | Fast codebase search, pattern discovery |
 | xx-librarian | opencode/kimi-k2.5-free | Documentation search, GitHub exploration |
 | xx-looker | Gemini-3-flash | Screenshot/diagram/PDF analysis |
-| xx-planner | Claude Opus 4.6 | Pre-planning, intent analysis, requirement discovery |
+| xx-planner | GPT-5.2 | Pre-planning, intent analysis, requirement discovery |
 | xx-reviewer | GPT-5.2 | Plan verification, solution review |
 
 ## Prerequisites
@@ -23,9 +23,10 @@ xxcoder requires backend CLIs to communicate with different model providers:
 | Backend | Agents | Install |
 |---------|--------|---------|
 | [codex](https://github.com/openai/codex) | oracle, developer | `npm i -g @openai/codex` |
-| [claude](https://github.com/anthropics/claude-code) | planner | `npm i -g @anthropic-ai/claude-code` |
 | [gemini](https://github.com/google-gemini/gemini-cli) | looker | `npm i -g @google/gemini-cli` |
 | [opencode](https://github.com/opencode-ai/opencode) | explorer, librarian | `go install github.com/opencode-ai/opencode@latest` |
+
+`planner` defaults to `codex` to avoid nested `claude` CLI invocation inside an active Claude Code session.
 
 `npx xxcoder init` installs the packaged `codeagent-wrapper` binary automatically.
 
@@ -56,20 +57,22 @@ npm i -g .
 For OpenCode-backed agents, model IDs must be `provider/model` format. Check available IDs with `opencode models` and adjust `~/.codeagent/models.json` if needed.
 
 This copies agent definitions, skills, hooks, and config templates to `~/.claude/` and `~/.codeagent/`, and overwrites existing xxcoder files.
+xxcoder does not rely on a global `CLAUDE.md` prompt; orchestration is activated manually via `/xx`.
 
 ## Setup
 
 1. **Check backends**: `xxcoder doctor`
-2. **Configure models**: Edit `~/.codeagent/models.json` and fill in your API keys
-3. **Enable Sisyphus**: Use the installed `~/.claude/CLAUDE.md` directly (or copy it to your project as needed)
-4. **Use it**: Start Claude Code and work normally. Orchestration auto-routes on non-trivial requests (`/xx` is optional manual override)
+2. **Configure models**: Edit `~/.codeagent/models.json` and fill in your API keys (you can also tune wrapper timeout/log settings in the top-level `wrapper` block)
+3. **Start fresh session**: Restart Claude Code after install
+4. **Enable Sisyphus manually**: Run `/xx` in the session where you want orchestration
 
 ## How it works
 
 ```
 User request
-  → Claude Code (Sisyphus orchestrator)
-    → xx routing skill (auto routing + optional `/xx` override)
+  → Claude Code session
+    → manual `/xx` activation
+    → xx orchestration skill (Sisyphus routing brain)
       → Task subagent (thin proxy agent)
       → codeagent-wrapper → backend CLI (oracle/developer/explorer/librarian/looker/planner/reviewer)
 ```
@@ -87,9 +90,9 @@ xxcoder/
 ├── templates/
 │   ├── agents/xx/              # 7 Claude Code subagent definitions (.md with frontmatter)
 │   ├── prompts/                # 7 codeagent-wrapper role prompts (minimal system prompts)
-│   ├── config/                 # CLAUDE.md.example, models.json.example
+│   ├── config/                 # models.json.example
 │   ├── hooks/                  # pre-bash.py (dangerous command blocker)
-│   └── skills/xx/SKILL.md      # Orchestration skill with routing signals
+│   └── skills/xx/SKILL.md      # Sisyphus orchestration brain
 ```
 
 `agents/xx/*.md` — Full agent definitions used when invoked as Claude Code Task subagents (with frontmatter: model, tools, maxTurns).

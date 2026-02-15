@@ -15,17 +15,25 @@ type BackendConfig struct {
 	APIKey  string `json:"api_key,omitempty"`
 }
 
+type WrapperSettings struct {
+	TimeoutMs                int            `json:"timeout_ms,omitempty"`
+	NoOutputTimeoutMs        int            `json:"no_output_timeout_ms,omitempty"`
+	KeepLogs                 *bool          `json:"keep_logs,omitempty"`
+	BackendNoOutputTimeoutMs map[string]int `json:"backend_no_output_timeout_ms,omitempty"`
+}
+
 type AgentModelConfig struct {
-	Backend         string   `json:"backend"`
-	Model           string   `json:"model"`
-	PromptFile      string   `json:"prompt_file,omitempty"`
-	Description     string   `json:"description,omitempty"`
-	Yolo            bool     `json:"yolo,omitempty"`
-	Reasoning       string   `json:"reasoning,omitempty"`
-	BaseURL         string   `json:"base_url,omitempty"`
-	APIKey          string   `json:"api_key,omitempty"`
-	AllowedTools    []string `json:"allowed_tools,omitempty"`
-	DisallowedTools []string `json:"disallowed_tools,omitempty"`
+	Backend         string           `json:"backend"`
+	Model           string           `json:"model"`
+	PromptFile      string           `json:"prompt_file,omitempty"`
+	Description     string           `json:"description,omitempty"`
+	Yolo            bool             `json:"yolo,omitempty"`
+	Reasoning       string           `json:"reasoning,omitempty"`
+	BaseURL         string           `json:"base_url,omitempty"`
+	APIKey          string           `json:"api_key,omitempty"`
+	AllowedTools    []string         `json:"allowed_tools,omitempty"`
+	DisallowedTools []string         `json:"disallowed_tools,omitempty"`
+	Wrapper         *WrapperSettings `json:"wrapper,omitempty"`
 }
 
 type ModelsConfig struct {
@@ -33,6 +41,7 @@ type ModelsConfig struct {
 	DefaultModel   string                      `json:"default_model"`
 	Agents         map[string]AgentModelConfig `json:"agents"`
 	Backends       map[string]BackendConfig    `json:"backends,omitempty"`
+	Wrapper        *WrapperSettings            `json:"wrapper,omitempty"`
 }
 
 var defaultModelsConfig = ModelsConfig{}
@@ -114,6 +123,7 @@ func loadModelsConfig() (*ModelsConfig, error) {
 
 	cfg.DefaultBackend = strings.TrimSpace(cfg.DefaultBackend)
 	cfg.DefaultModel = strings.TrimSpace(cfg.DefaultModel)
+	normalizeWrapperSettings(cfg.Wrapper)
 
 	// Normalize backend keys so lookups can be case-insensitive.
 	if len(cfg.Backends) > 0 {
@@ -132,7 +142,36 @@ func loadModelsConfig() (*ModelsConfig, error) {
 		}
 	}
 
+	if len(cfg.Agents) > 0 {
+		for name, agent := range cfg.Agents {
+			normalizeWrapperSettings(agent.Wrapper)
+			cfg.Agents[name] = agent
+		}
+	}
+
 	return &cfg, nil
+}
+
+func normalizeWrapperSettings(settings *WrapperSettings) {
+	if settings == nil {
+		return
+	}
+	if len(settings.BackendNoOutputTimeoutMs) == 0 {
+		return
+	}
+	normalized := make(map[string]int, len(settings.BackendNoOutputTimeoutMs))
+	for k, v := range settings.BackendNoOutputTimeoutMs {
+		key := strings.ToLower(strings.TrimSpace(k))
+		if key == "" || v <= 0 {
+			continue
+		}
+		normalized[key] = v
+	}
+	if len(normalized) == 0 {
+		settings.BackendNoOutputTimeoutMs = nil
+		return
+	}
+	settings.BackendNoOutputTimeoutMs = normalized
 }
 
 func LoadDynamicAgent(name string) (AgentModelConfig, bool) {
@@ -252,6 +291,64 @@ func resolveAgentConfig(agentName string) (backend, model, promptFile, reasoning
 
 func ResolveAgentConfig(agentName string) (backend, model, promptFile, reasoning, baseURL, apiKey string, yolo bool, allowedTools, disallowedTools []string, err error) {
 	return resolveAgentConfig(agentName)
+}
+
+type ResolvedWrapperSettings struct {
+	TimeoutMs                int
+	NoOutputTimeoutMs        int
+	KeepLogs                 *bool
+	BackendNoOutputTimeoutMs map[string]int
+}
+
+func ResolveWrapperSettings(agentName, backendName string) ResolvedWrapperSettings {
+	cfg, err := modelsConfig()
+	if err != nil || cfg == nil {
+		return ResolvedWrapperSettings{}
+	}
+
+	resolved := ResolvedWrapperSettings{}
+
+	merge := func(settings *WrapperSettings) {
+		if settings == nil {
+			return
+		}
+		if settings.TimeoutMs > 0 {
+			resolved.TimeoutMs = settings.TimeoutMs
+		}
+		if settings.NoOutputTimeoutMs > 0 {
+			resolved.NoOutputTimeoutMs = settings.NoOutputTimeoutMs
+		}
+		if settings.KeepLogs != nil {
+			v := *settings.KeepLogs
+			resolved.KeepLogs = &v
+		}
+		if len(settings.BackendNoOutputTimeoutMs) > 0 {
+			if resolved.BackendNoOutputTimeoutMs == nil {
+				resolved.BackendNoOutputTimeoutMs = make(map[string]int, len(settings.BackendNoOutputTimeoutMs))
+			}
+			for k, v := range settings.BackendNoOutputTimeoutMs {
+				if v > 0 {
+					resolved.BackendNoOutputTimeoutMs[k] = v
+				}
+			}
+		}
+	}
+
+	merge(cfg.Wrapper)
+	if agentName = strings.TrimSpace(agentName); agentName != "" {
+		if agent, ok := cfg.Agents[agentName]; ok {
+			merge(agent.Wrapper)
+		}
+	}
+
+	backendKey := strings.ToLower(strings.TrimSpace(backendName))
+	if backendKey != "" && len(resolved.BackendNoOutputTimeoutMs) > 0 {
+		if ms, ok := resolved.BackendNoOutputTimeoutMs[backendKey]; ok && ms > 0 {
+			resolved.NoOutputTimeoutMs = ms
+		}
+	}
+
+	return resolved
 }
 
 func ResetModelsConfigCacheForTest() {

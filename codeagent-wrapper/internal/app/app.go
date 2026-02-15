@@ -265,8 +265,13 @@ Parallel mode examples:
     %[1]s --parallel <<'EOF'
 
 Environment Variables:
-    CODEX_TIMEOUT         Timeout in milliseconds (default: 7200000)
+    CODEAGENT_TIMEOUT_MS  Wrapper timeout in milliseconds (preferred override)
+    CODEX_TIMEOUT         Legacy timeout override (seconds if <=10000, else milliseconds)
+    CODEAGENT_NO_OUTPUT_TIMEOUT_MS  No-output watchdog timeout in milliseconds
+    CODEAGENT_<BACKEND>_NO_OUTPUT_TIMEOUT_MS  Backend-specific no-output timeout override
+    CODEAGENT_KEEP_LOGS   Keep wrapper logs instead of deleting after run
     CODEAGENT_ASCII_MODE  Use ASCII symbols instead of Unicode (PASS/WARN/FAIL)
+    (Preferred persistent config location: ~/.codeagent/models.json -> wrapper)
 
 Exit Codes:
     0    Success

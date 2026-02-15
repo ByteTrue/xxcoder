@@ -122,3 +122,18 @@ func (b *tailBuffer) Write(p []byte) (int, error) {
 func (b *tailBuffer) String() string {
 	return string(b.data)
 }
+
+type activityWriter struct {
+	notify func()
+}
+
+func newActivityWriter(notify func()) *activityWriter {
+	return &activityWriter{notify: notify}
+}
+
+func (w *activityWriter) Write(p []byte) (int, error) {
+	if w != nil && w.notify != nil && len(p) > 0 {
+		w.notify()
+	}
+	return len(p), nil
+}

@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1132,9 +1133,28 @@ func RunCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 		cmd.SetDir(cfg.WorkDir)
 	}
 
+	noOutputTimeout := noOutputTimeoutForBackend(cfg.Backend, taskSpec.Agent)
+	var (
+		outputActivityCh <-chan struct{}
+		activitySink     io.Writer
+	)
+	if noOutputTimeout > 0 {
+		ch := make(chan struct{}, 1)
+		outputActivityCh = ch
+		activitySink = newActivityWriter(func() {
+			select {
+			case ch <- struct{}{}:
+			default:
+			}
+		})
+	}
+
 	stderrWriters := []io.Writer{stderrBuf}
 	if stderrLogger != nil {
 		stderrWriters = append(stderrWriters, stderrLogger)
+	}
+	if activitySink != nil {
+		stderrWriters = append(stderrWriters, activitySink)
 	}
 
 	// For gemini backend, filter noisy stderr output
@@ -1185,8 +1205,12 @@ func RunCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 	}
 
 	stdoutReader := io.Reader(stdout)
-	if stdoutLogger != nil {
+	if stdoutLogger != nil && activitySink != nil {
+		stdoutReader = io.TeeReader(stdout, io.MultiWriter(stdoutLogger, activitySink))
+	} else if stdoutLogger != nil {
 		stdoutReader = io.TeeReader(stdout, stdoutLogger)
+	} else if activitySink != nil {
+		stdoutReader = io.TeeReader(stdout, activitySink)
 	}
 
 	// Start parse goroutine BEFORE starting the command to avoid race condition
@@ -1266,11 +1290,30 @@ func RunCodexTaskWithContext(parentCtx context.Context, taskSpec TaskSpec, backe
 		ctxCancelled         bool
 		messageTimer         *time.Timer
 		messageTimerCh       <-chan time.Time
+		idleTimer            *time.Timer
+		idleTimerCh          <-chan time.Time
+		idleTimedOut         bool
 		forcedAfterComplete  bool
 		terminated           bool
 		messageSeenObserved  bool
 		completeSeenObserved bool
 	)
+	if noOutputTimeout > 0 {
+		idleTimer = time.NewTimer(noOutputTimeout)
+		idleTimerCh = idleTimer.C
+	}
+	resetIdleTimer := func() {
+		if idleTimer == nil {
+			return
+		}
+		if !idleTimer.Stop() {
+			select {
+			case <-idleTimer.C:
+			default:
+			}
+		}
+		idleTimer.Reset(noOutputTimeout)
+	}
 
 waitLoop:
 	for {
@@ -1322,8 +1365,32 @@ waitLoop:
 					}
 				}
 			}
+		case <-idleTimerCh:
+			idleTimedOut = true
+			idleTimerCh = nil
+			logErrorFn(fmt.Sprintf("%s stalled: no output for %s; terminating process", commandName, noOutputTimeout))
+			if !terminated {
+				if timer := terminateCommandFn(cmd); timer != nil {
+					forceKillTimer = timer
+					terminated = true
+				}
+			}
+			closeWithReason(stdout, "no-output-timeout")
+			closeWithReason(stderr, "no-output-timeout")
+			for {
+				select {
+				case err := <-waitCh:
+					waitErr = err
+					break waitLoop
+				case <-time.After(forceKillWaitTimeout):
+					if proc := cmd.Process(); proc != nil {
+						_ = proc.Kill()
+					}
+				}
+			}
 		case <-completeSeen:
 			completeSeenObserved = true
+			resetIdleTimer()
 			if messageTimer != nil {
 				continue
 			}
@@ -1331,6 +1398,9 @@ waitLoop:
 			messageTimerCh = messageTimer.C
 		case <-messageSeen:
 			messageSeenObserved = true
+			resetIdleTimer()
+		case <-outputActivityCh:
+			resetIdleTimer()
 		}
 	}
 
@@ -1345,6 +1415,14 @@ waitLoop:
 
 	if forceKillTimer != nil {
 		forceKillTimer.Stop()
+	}
+	if idleTimer != nil {
+		if !idleTimer.Stop() {
+			select {
+			case <-idleTimer.C:
+			default:
+			}
+		}
 	}
 
 	var parsed parseResult
@@ -1388,6 +1466,11 @@ waitLoop:
 		}
 		result.ExitCode = 130
 		result.Error = attachStderr("execution cancelled")
+		return result
+	}
+	if idleTimedOut {
+		result.ExitCode = 124
+		result.Error = attachStderr(fmt.Sprintf("%s stalled: no output for %s", commandName, noOutputTimeout))
 		return result
 	}
 
@@ -1449,6 +1532,42 @@ func injectTempEnv(cmd commandRunner) {
 		return
 	}
 	cmd.SetEnv(env)
+}
+
+func noOutputTimeoutForBackend(backendName, agentName string) time.Duration {
+	backend := strings.ToLower(strings.TrimSpace(backendName))
+
+	readMs := func(key string) (time.Duration, bool) {
+		raw := strings.TrimSpace(os.Getenv(key))
+		if raw == "" {
+			return 0, false
+		}
+		ms, err := strconv.Atoi(raw)
+		if err != nil || ms <= 0 {
+			return 0, false
+		}
+		return time.Duration(ms) * time.Millisecond, true
+	}
+
+	if backend != "" {
+		key := fmt.Sprintf("CODEAGENT_%s_NO_OUTPUT_TIMEOUT_MS", strings.ToUpper(strings.ReplaceAll(backend, "-", "_")))
+		if d, ok := readMs(key); ok {
+			return d
+		}
+	}
+
+	if d, ok := readMs("CODEAGENT_NO_OUTPUT_TIMEOUT_MS"); ok {
+		return d
+	}
+
+	if settings := config.ResolveWrapperSettings(agentName, backend); settings.NoOutputTimeoutMs > 0 {
+		return time.Duration(settings.NoOutputTimeoutMs) * time.Millisecond
+	}
+
+	if backend == "opencode" {
+		return 90 * time.Second
+	}
+	return 15 * time.Minute
 }
 
 func cancelReason(commandName string, ctx context.Context) string {

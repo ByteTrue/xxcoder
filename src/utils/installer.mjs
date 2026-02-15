@@ -1,4 +1,4 @@
-import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync } from "node:fs"
+import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync } from "node:fs"
 import { join, dirname, delimiter } from "node:path"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
@@ -201,13 +201,23 @@ export function installWrapper({ force = false, silent = false } = {}) {
 }
 
 /**
- * Install CLAUDE.md and always overwrite the destination file.
+ * Remove xxcoder-managed CLAUDE.md to enforce manual skill activation mode.
+ * Non-xxcoder CLAUDE.md files are left untouched.
  */
-export function installClaudeMd(src, dest, { silent = false } = {}) {
-  const content = readFileSync(src, "utf-8")
-  const action = existsSync(dest) ? "overwrite" : "create"
-  mkdirSync(dirname(dest), { recursive: true })
-  writeFileSync(dest, content, "utf-8")
-  if (!silent) console.log(`  ${action}: ${dest}`)
+export function disableManagedClaudeMd(dest, { silent = false } = {}) {
+  if (!existsSync(dest)) {
+    if (!silent) console.log(`  skip (not found): ${dest}`)
+    return { copied: 0, skipped: 1 }
+  }
+
+  const content = readFileSync(dest, "utf-8")
+  const isManaged = content.includes("# XX Multi-Agent Orchestration") || content.includes("# XX Bootstrap")
+  if (!isManaged) {
+    if (!silent) console.log(`  skip (user-managed): ${dest}`)
+    return { copied: 0, skipped: 1 }
+  }
+
+  unlinkSync(dest)
+  if (!silent) console.log(`  removed: ${dest}`)
   return { copied: 1, skipped: 0 }
 }

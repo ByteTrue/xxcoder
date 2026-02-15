@@ -113,6 +113,9 @@ skip-permissions: false
 - `CODEAGENT_SKIP_PERMISSIONS`
 - `CODEAGENT_FULL_OUTPUT`（并行模式 legacy 输出）
 - `CODEAGENT_MAX_PARALLEL_WORKERS`（0 表示不限制，上限 100）
+- `CODEAGENT_TIMEOUT_MS`（覆盖 wrapper 总超时，毫秒）
+- `CODEX_TIMEOUT`（兼容旧变量，`<=10000` 按秒、否则按毫秒）
+- `CODEAGENT_KEEP_LOGS`（`1/true` 保留日志文件）
 
 ### Agent 预设（`~/.codeagent/models.json`）
 
@@ -122,16 +125,34 @@ skip-permissions: false
 {
   "default_backend": "opencode",
   "default_model": "opencode/grok-code",
+  "wrapper": {
+    "timeout_ms": 1200000,
+    "no_output_timeout_ms": 900000,
+    "backend_no_output_timeout_ms": {
+      "opencode": 90000
+    },
+    "keep_logs": false
+  },
   "agents": {
     "develop": {
       "backend": "codex",
       "model": "gpt-4.1",
       "prompt_file": "~/.codeagent/prompts/develop.md",
-      "description": "Code development"
+      "description": "Code development",
+      "wrapper": {
+        "timeout_ms": 1800000
+      }
     }
   }
 }
 ```
+
+`wrapper` 支持全局默认值；`agents.<name>.wrapper` 可按角色覆盖。当前支持：
+
+- `timeout_ms`
+- `no_output_timeout_ms`
+- `backend_no_output_timeout_ms`（按 backend 名称覆盖）
+- `keep_logs`
 
 ## 支持的后端
 

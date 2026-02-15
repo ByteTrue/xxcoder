@@ -2360,28 +2360,43 @@ func TestBackendNamesAndCommands(t *testing.T) {
 }
 
 func TestRunResolveTimeout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Cleanup(config.ResetModelsConfigCacheForTest)
+	config.ResetModelsConfigCacheForTest()
+
 	tests := []struct {
-		name   string
-		envVal string
-		want   int
+		name           string
+		codeagentMsVal string
+		codexVal       string
+		want           int
 	}{
-		{"empty env", "", 7200},
-		{"milliseconds", "7200000", 7200},
-		{"seconds", "3600", 3600},
-		{"invalid", "invalid", 7200},
-		{"negative", "-100", 7200},
-		{"zero", "0", 7200},
-		{"small milliseconds", "5000", 5000},
-		{"boundary", "10000", 10000},
-		{"above boundary", "10001", 10},
+		{"empty env", "", "", 7200},
+		{"codeagent milliseconds", "7200000", "", 7200},
+		{"codeagent invalid", "invalid", "", 7200},
+		{"legacy milliseconds", "", "7200000", 7200},
+		{"legacy seconds", "", "3600", 3600},
+		{"legacy invalid", "", "invalid", 7200},
+		{"legacy negative", "", "-100", 7200},
+		{"legacy zero", "", "0", 7200},
+		{"legacy small milliseconds", "", "5000", 5000},
+		{"legacy boundary", "", "10000", 10000},
+		{"legacy above boundary", "", "10001", 10},
+		{"codeagent precedence over legacy", "1800000", "3600", 1800},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("CODEX_TIMEOUT", tt.envVal)
-			got := resolveTimeout()
+			if tt.codeagentMsVal != "" {
+				t.Setenv("CODEAGENT_TIMEOUT_MS", tt.codeagentMsVal)
+			}
+			if tt.codexVal != "" {
+				t.Setenv("CODEX_TIMEOUT", tt.codexVal)
+			}
+			got := resolveTimeout("", "")
 			if got != tt.want {
-				t.Errorf("resolveTimeout() with env=%q = %v, want %v", tt.envVal, got, tt.want)
+				t.Errorf("resolveTimeout() = %v, want %v", got, tt.want)
 			}
 		})
 	}

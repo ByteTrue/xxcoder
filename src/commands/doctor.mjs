@@ -30,7 +30,7 @@ const BACKENDS = [
   {
     name: "opencode",
     command: "opencode",
-    check: ["opencode", "version"],
+    check: ["opencode", "--version"],
     purpose: "OpenCode CLI (explorer, librarian)",
     install: "go install github.com/opencode-ai/opencode@latest",
   },

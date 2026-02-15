@@ -201,7 +201,9 @@ func runWithLoggerAndCleanup(fn func() int) (exitCode int) {
 				fmt.Fprintf(os.Stderr, "Log file: %s (deleted)\n", logger.Path())
 			}
 		}
-		_ = logger.RemoveLogFile()
+		if !shouldKeepLogs() {
+			_ = logger.RemoveLogFile()
+		}
 	}()
 	defer runCleanupHook()
 
@@ -209,6 +211,32 @@ func runWithLoggerAndCleanup(fn func() int) (exitCode int) {
 	scheduleStartupCleanup()
 
 	return fn()
+}
+
+func shouldKeepLogs() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("CODEAGENT_KEEP_LOGS")))
+	if v != "" {
+		return v == "1" || v == "true" || v == "yes" || v == "on"
+	}
+	if settings := config.ResolveWrapperSettings("", ""); settings.KeepLogs != nil {
+		return *settings.KeepLogs
+	}
+	return false
+}
+
+func applyResolvedWrapperEnv(agentName, backendName string) {
+	if strings.TrimSpace(os.Getenv("CODEAGENT_KEEP_LOGS")) != "" {
+		return
+	}
+	settings := config.ResolveWrapperSettings(agentName, backendName)
+	if settings.KeepLogs == nil {
+		return
+	}
+	if *settings.KeepLogs {
+		_ = os.Setenv("CODEAGENT_KEEP_LOGS", "1")
+		return
+	}
+	_ = os.Setenv("CODEAGENT_KEEP_LOGS", "0")
 }
 
 func parseArgs() (*Config, error) {
@@ -477,6 +505,7 @@ func runParallelMode(cmd *cobra.Command, args []string, opts *cliOptions, v *vip
 		return 1
 	}
 	backendName = backend.Name()
+	applyResolvedWrapperEnv("", backendName)
 
 	data, err := io.ReadAll(stdinReader)
 	if err != nil {
@@ -502,7 +531,7 @@ func runParallelMode(cmd *cobra.Command, args []string, opts *cliOptions, v *vip
 		cfg.Tasks[i].SkipPermissions = cfg.Tasks[i].SkipPermissions || skipPermissions
 	}
 
-	timeoutSec := resolveTimeout()
+	timeoutSec := resolveTimeout("", backendName)
 	layers, err := topologicalSort(cfg.Tasks)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -537,6 +566,8 @@ func runParallelMode(cmd *cobra.Command, args []string, opts *cliOptions, v *vip
 }
 
 func runSingleMode(cfg *Config, name string) int {
+	applyResolvedWrapperEnv(cfg.Agent, cfg.Backend)
+
 	backend, err := selectBackendFn(cfg.Backend)
 	if err != nil {
 		logError(err.Error())
@@ -555,7 +586,7 @@ func runSingleMode(cfg *Config, name string) int {
 	}
 	logInfo(fmt.Sprintf("Selected backend: %s", backend.Name()))
 
-	timeoutSec := resolveTimeout()
+	timeoutSec := resolveTimeout(cfg.Agent, cfg.Backend)
 	logInfo(fmt.Sprintf("Timeout: %ds", timeoutSec))
 	cfg.Timeout = timeoutSec
 

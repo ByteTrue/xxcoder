@@ -199,7 +199,7 @@ EOF
 
 ```bash
 # Set custom timeout (1 hour = 3600000ms)
-CODEX_TIMEOUT=3600000 codeagent-wrapper "long running task"
+CODEAGENT_TIMEOUT_MS=3600000 codeagent-wrapper "long running task"
 
 # Default timeout: 7200000ms (2 hours)
 ```
@@ -317,7 +317,11 @@ Error: dependency backend_1701234567 failed
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CODEX_TIMEOUT` | 7200000 | Timeout in milliseconds |
+| `CODEAGENT_TIMEOUT_MS` | models.json/default | Wrapper timeout in milliseconds (preferred) |
+| `CODEX_TIMEOUT` | 7200000 | Legacy timeout override (`<=10000` seconds, otherwise milliseconds) |
+| `CODEAGENT_NO_OUTPUT_TIMEOUT_MS` | models.json/default | Kill backend when no stdout/stderr activity for N ms |
+| `CODEAGENT_<BACKEND>_NO_OUTPUT_TIMEOUT_MS` | unset | Backend-specific no-output timeout override (e.g. `CODEAGENT_OPENCODE_NO_OUTPUT_TIMEOUT_MS`) |
+| `CODEAGENT_KEEP_LOGS` | false | Keep wrapper logs after execution |
 | `CODEX_BYPASS_SANDBOX` | true | Bypass Codex sandbox/approval. Set `false` to disable |
 | `CODEAGENT_SKIP_PERMISSIONS` | true | Skip Claude permission prompts. Set `false` to disable |
 
@@ -337,7 +341,7 @@ echo $PATH
 **Timeout too short:**
 ```bash
 # Increase timeout to 4 hours
-CODEX_TIMEOUT=14400000 codeagent-wrapper "complex task"
+CODEAGENT_TIMEOUT_MS=14400000 codeagent-wrapper "complex task"
 ```
 
 **Session ID not found:**

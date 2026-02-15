@@ -260,3 +260,87 @@ func TestResolveAgentConfig_EmptyModel_ReturnsError(t *testing.T) {
 		t.Fatalf("error should mention empty model, got: %s", err.Error())
 	}
 }
+
+func TestResolveWrapperSettings_GlobalAndAgentOverride(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Cleanup(ResetModelsConfigCacheForTest)
+	ResetModelsConfigCacheForTest()
+
+	configDir := filepath.Join(home, ".codeagent")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	content := `{
+  "wrapper": {
+    "timeout_ms": 1200000,
+    "no_output_timeout_ms": 900000,
+    "backend_no_output_timeout_ms": {
+      "OpenCode": 90000
+    },
+    "keep_logs": false
+  },
+  "agents": {
+    "explorer": {
+      "backend": "opencode",
+      "model": "opencode/kimi-k2.5-free",
+      "wrapper": {
+        "timeout_ms": 600000,
+        "keep_logs": true
+      }
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(configDir, "models.json"), []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	resolved := ResolveWrapperSettings("explorer", "opencode")
+	if resolved.TimeoutMs != 600000 {
+		t.Fatalf("TimeoutMs = %d, want %d", resolved.TimeoutMs, 600000)
+	}
+	if resolved.NoOutputTimeoutMs != 90000 {
+		t.Fatalf("NoOutputTimeoutMs = %d, want %d", resolved.NoOutputTimeoutMs, 90000)
+	}
+	if resolved.KeepLogs == nil || !*resolved.KeepLogs {
+		t.Fatalf("KeepLogs = %v, want true", resolved.KeepLogs)
+	}
+	if ms := resolved.BackendNoOutputTimeoutMs["opencode"]; ms != 90000 {
+		t.Fatalf("backend_no_output_timeout_ms[opencode] = %d, want %d", ms, 90000)
+	}
+}
+
+func TestResolveWrapperSettings_BackendSpecificFallback(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Cleanup(ResetModelsConfigCacheForTest)
+	ResetModelsConfigCacheForTest()
+
+	configDir := filepath.Join(home, ".codeagent")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	content := `{
+  "wrapper": {
+    "backend_no_output_timeout_ms": {
+      "opencode": 90000
+    }
+  },
+  "agents": {
+    "librarian": {
+      "backend": "opencode",
+      "model": "opencode/kimi-k2.5-free"
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(configDir, "models.json"), []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	resolved := ResolveWrapperSettings("librarian", "opencode")
+	if resolved.NoOutputTimeoutMs != 90000 {
+		t.Fatalf("NoOutputTimeoutMs = %d, want %d", resolved.NoOutputTimeoutMs, 90000)
+	}
+}

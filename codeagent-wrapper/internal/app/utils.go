@@ -8,25 +8,55 @@ import (
 	"strconv"
 	"strings"
 
+	config "codeagent-wrapper/internal/config"
 	utils "codeagent-wrapper/internal/utils"
 )
 
-func resolveTimeout() int {
-	raw := os.Getenv("CODEX_TIMEOUT")
+func resolveTimeout(agentName, backendName string) int {
+	if secs, ok := resolveTimeoutFromEnv(); ok {
+		return secs
+	}
+
+	settings := config.ResolveWrapperSettings(agentName, backendName)
+	if settings.TimeoutMs > 0 {
+		return max(1, settings.TimeoutMs/1000)
+	}
+
+	return defaultTimeout
+}
+
+func resolveTimeoutFromEnv() (int, bool) {
+	if raw := strings.TrimSpace(os.Getenv("CODEAGENT_TIMEOUT_MS")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err == nil && parsed > 0 {
+			return max(1, parsed/1000), true
+		}
+		logWarn(fmt.Sprintf("Invalid CODEAGENT_TIMEOUT_MS '%s', ignoring", raw))
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("CODEAGENT_TIMEOUT_SEC")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err == nil && parsed > 0 {
+			return parsed, true
+		}
+		logWarn(fmt.Sprintf("Invalid CODEAGENT_TIMEOUT_SEC '%s', ignoring", raw))
+	}
+
+	raw := strings.TrimSpace(os.Getenv("CODEX_TIMEOUT"))
 	if raw == "" {
-		return defaultTimeout
+		return 0, false
 	}
 
 	parsed, err := strconv.Atoi(raw)
 	if err != nil || parsed <= 0 {
-		logWarn(fmt.Sprintf("Invalid CODEX_TIMEOUT '%s', falling back to %ds", raw, defaultTimeout))
-		return defaultTimeout
+		logWarn(fmt.Sprintf("Invalid CODEX_TIMEOUT '%s', ignoring", raw))
+		return 0, false
 	}
 
 	if parsed > 10000 {
-		return parsed / 1000
+		return max(1, parsed/1000), true
 	}
-	return parsed
+	return parsed, true
 }
 
 func readPipedTask() (string, error) {
@@ -213,6 +243,13 @@ func sanitizeOutput(s string) string {
 
 func min(a, b int) int {
 	return utils.Min(a, b)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func hello() string {

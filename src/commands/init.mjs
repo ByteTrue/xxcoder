@@ -10,7 +10,7 @@ import {
   getDefaultInstallDir,
   getProjectInstallDir,
   installWrapper,
-  installClaudeMd,
+  disableManagedClaudeMd,
 } from "../utils/installer.mjs"
 
 function printBanner() {
@@ -137,14 +137,10 @@ export async function init({ installDir = "", interactive = true } = {}) {
     )
   )
 
-  // 6. CLAUDE.md (always overwrite)
+  // 6. Disable managed CLAUDE.md (manual /xx mode)
   addCounts(
-    await runStep("Installing CLAUDE.md", () =>
-      installClaudeMd(
-        join(templates, "config", "CLAUDE.md.example"),
-        join(dest, "CLAUDE.md"),
-        opts
-      )
+    await runStep("Disabling managed CLAUDE.md", () =>
+      disableManagedClaudeMd(join(dest, "CLAUDE.md"), opts)
     )
   )
 
@@ -174,8 +170,8 @@ export async function init({ installDir = "", interactive = true } = {}) {
   console.log(ansis.yellow("  Next steps:"))
   console.log(ansis.yellow("  1.") + ` Run ${ansis.cyan("xxcoder doctor")} to check backend CLIs`)
   console.log(ansis.yellow("  2.") + ` Edit ${ansis.dim("~/.codeagent/models.json")} and configure API keys for your backends`)
-  console.log(ansis.yellow("  3.") + " Restart Claude Code to reload updated CLAUDE.md, skills, and subagents")
-  console.log(ansis.yellow("  4.") + " Use Claude Code normally (orchestration is automatic for non-trivial requests; /xx is optional)")
+  console.log(ansis.yellow("  3.") + " Restart Claude Code to reload updated skills and subagents")
+  console.log(ansis.yellow("  4.") + ` In each session, run ${ansis.cyan("/xx")} to activate Sisyphus orchestration manually`)
   console.log(ansis.yellow("  5.") + ` If wrapper command is not in PATH, use ${ansis.dim("~/.claude/bin/codeagent-wrapper")} (subagents now auto-detect this path)`)
   console.log()
 }
