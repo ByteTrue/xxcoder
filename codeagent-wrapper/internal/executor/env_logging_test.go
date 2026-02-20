@@ -174,37 +174,36 @@ func TestClaudeBackendEnv(t *testing.T) {
 		baseURL    string
 		apiKey     string
 		expectKeys []string
-		expectNil  bool
 	}{
 		{
 			name:       "both base_url and api_key",
 			baseURL:    "https://api.custom.com",
 			apiKey:     "sk-test-key-12345",
-			expectKeys: []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"},
+			expectKeys: []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"},
 		},
 		{
 			name:       "only base_url",
 			baseURL:    "https://api.custom.com",
 			apiKey:     "",
-			expectKeys: []string{"ANTHROPIC_BASE_URL"},
+			expectKeys: []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "ANTHROPIC_BASE_URL"},
 		},
 		{
 			name:       "only api_key",
 			baseURL:    "",
 			apiKey:     "sk-test-key-12345",
-			expectKeys: []string{"ANTHROPIC_API_KEY"},
+			expectKeys: []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "ANTHROPIC_API_KEY"},
 		},
 		{
-			name:      "both empty",
-			baseURL:   "",
-			apiKey:    "",
-			expectNil: true,
+			name:       "both empty",
+			baseURL:    "",
+			apiKey:     "",
+			expectKeys: []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"},
 		},
 		{
-			name:      "whitespace only",
-			baseURL:   "   ",
-			apiKey:    "  ",
-			expectNil: true,
+			name:       "whitespace only",
+			baseURL:    "   ",
+			apiKey:     "  ",
+			expectKeys: []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"},
 		},
 	}
 
@@ -213,20 +212,21 @@ func TestClaudeBackendEnv(t *testing.T) {
 			b := backend.ClaudeBackend{}
 			env := b.Env(tt.baseURL, tt.apiKey)
 
-			if tt.expectNil {
-				if env != nil {
-					t.Errorf("expected nil env, got %v", env)
-				}
-				return
-			}
-
 			if env == nil {
-				t.Fatal("expected non-nil env")
+				t.Fatal("expected non-nil env (should always return map with CLAUDECODE)")
 			}
 
 			for _, key := range tt.expectKeys {
 				if _, ok := env[key]; !ok {
 					t.Errorf("expected key %q in env", key)
+				}
+			}
+
+			// Verify all Claude Code session env vars are cleared
+			claudeCodeVars := []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"}
+			for _, key := range claudeCodeVars {
+				if env[key] != "" {
+					t.Errorf("%s should be empty string, got %q", key, env[key])
 				}
 			}
 

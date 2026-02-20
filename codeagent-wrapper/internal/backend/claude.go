@@ -17,10 +17,22 @@ func (ClaudeBackend) Command() string { return "claude" }
 func (ClaudeBackend) Env(baseURL, apiKey string) map[string]string {
 	baseURL = strings.TrimSpace(baseURL)
 	apiKey = strings.TrimSpace(apiKey)
-	if baseURL == "" && apiKey == "" {
-		return nil
-	}
-	env := make(map[string]string, 2)
+
+	// Always create env map to clear Claude Code session markers
+	env := make(map[string]string, 6)
+
+	// Clear all Claude Code session environment variables to allow nested invocation.
+	// Claude CLI checks multiple env vars to detect nesting, not just CLAUDECODE.
+	// This is safe because:
+	// 1. xxcoder uses single-shot, non-interactive claude -p calls (no recursion risk)
+	// 2. Child process has independent permission/security context
+	// 3. File system operations are safe (same-directory multi-instance is officially supported)
+	// See docs/known-issues.md for details.
+	env["CLAUDECODE"] = ""
+	env["CLAUDE_CODE_ENTRYPOINT"] = ""
+	env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = ""
+	env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = ""
+
 	if baseURL != "" {
 		env["ANTHROPIC_BASE_URL"] = baseURL
 	}

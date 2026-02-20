@@ -16,7 +16,8 @@
     },
     "claude": {
       "base_url": "",
-      "api_key": ""
+      "api_key": "",
+      "_comment": "Claude backend now supports nested invocation inside Claude Code sessions (CLAUDECODE env var is automatically cleared)"
     },
     "gemini": {
       "base_url": "",
