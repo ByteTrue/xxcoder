@@ -1,5 +1,5 @@
 {
-  "name": "xxcoder",
+  "name": "@bytetrue/xxcoder",
   "version": "0.1.2",
   "description": "Multi-model agent orchestration for Claude Code — route tasks to GPT, Gemini, Grok, GLM via codeagent-wrapper",
   "type": "module",
