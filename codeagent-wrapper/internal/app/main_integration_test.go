@@ -3,6 +3,7 @@ package wrapper
 import (
 	"bytes"
 	"codeagent-wrapper/internal/logger"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -723,11 +724,11 @@ func TestRunConcurrentSpeedupBenchmark(t *testing.T) {
 	layers := [][]TaskSpec{tasks}
 
 	serialStart := time.Now()
-	_ = executeConcurrentWithContext(nil, layers, 5, 1)
+	_ = executeConcurrentWithContext(context.TODO(), layers, 5, 1)
 	serialElapsed := time.Since(serialStart)
 
 	concurrentStart := time.Now()
-	_ = executeConcurrentWithContext(nil, layers, 5, 0)
+	_ = executeConcurrentWithContext(context.TODO(), layers, 5, 0)
 	concurrentElapsed := time.Since(concurrentStart)
 
 	ratio := float64(concurrentElapsed) / float64(serialElapsed)

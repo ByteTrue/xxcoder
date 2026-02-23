@@ -44,8 +44,6 @@ type ModelsConfig struct {
 	Wrapper        *WrapperSettings            `json:"wrapper,omitempty"`
 }
 
-var defaultModelsConfig = ModelsConfig{}
-
 const modelsConfigTildePath = "~/.codeagent/models.json"
 
 const modelsConfigExample = `{

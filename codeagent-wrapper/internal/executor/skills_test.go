@@ -163,7 +163,7 @@ func TestStripYAMLFrontmatter(t *testing.T) {
 
 func TestDetectProjectSkills_GoProject(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
 
 	skills := DetectProjectSkills(tmpDir)
 	// Result depends on whether golang-base-practices is installed locally
@@ -180,8 +180,8 @@ func TestDetectProjectSkills_NoFingerprints(t *testing.T) {
 
 func TestDetectProjectSkills_FullStack(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"name":"test"}`), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"name":"test"}`), 0644)
 
 	skills := DetectProjectSkills(tmpDir)
 	t.Logf("detected skills for fullstack project: %v", skills)
@@ -263,8 +263,8 @@ func TestResolveSkillContent_MultipleSkills(t *testing.T) {
 	home := t.TempDir()
 	for _, name := range []string{"skill-a", "skill-b"} {
 		skillDir := filepath.Join(home, ".claude", "skills", name)
-		os.MkdirAll(skillDir, 0755)
-		os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# "+name+"\nContent."), 0644)
+		_ = os.MkdirAll(skillDir, 0755)
+		_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# "+name+"\nContent."), 0644)
 	}
 	setTestHome(t, home)
 
