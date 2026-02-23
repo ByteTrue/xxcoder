@@ -65,7 +65,8 @@ jobs:
           git add -f binaries/
           git commit -m "release: v${{ steps.version.outputs.version }}"
           git tag "${{ steps.version.outputs.tag }}"
-          git push origin main --follow-tags
+          git push origin main
+          git push origin "${{ steps.version.outputs.tag }}"
 
       - name: Publish to npm
         run: npm publish
