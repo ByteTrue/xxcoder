@@ -7,6 +7,13 @@ import cac from "cac"
 import { init } from "../src/commands/init.mjs"
 import { uninstall } from "../src/commands/uninstall.mjs"
 import { doctor } from "../src/commands/doctor.mjs"
+import {
+  configShow,
+  configSetup,
+  configValidate,
+  configEdit,
+  configReset,
+} from "../src/commands/config.mjs"
 
 const require = createRequire(import.meta.url)
 const { version } = require("../package.json")
@@ -48,6 +55,34 @@ cli
     if (options.project) installDir = join(process.cwd(), ".claude")
     const interactive = !installDir && !options.force
     await uninstall({ force: options.force, installDir, interactive })
+  })
+
+cli
+  .command("config [action]", "Manage backend configuration")
+  .option("--backend <name>", "Specific backend to configure")
+  .action(async (action, options) => {
+    commandMatched = true
+
+    if (!action || action === "show") {
+      await configShow({ backend: options.backend })
+    } else if (action === "setup") {
+      if (!options.backend) {
+        console.log("Error: --backend is required for setup")
+        console.log("Usage: xxcoder config setup --backend <name>")
+        console.log("Example: xxcoder config setup --backend codex")
+        return
+      }
+      await configSetup({ backend: options.backend })
+    } else if (action === "validate") {
+      await configValidate()
+    } else if (action === "edit") {
+      await configEdit()
+    } else if (action === "reset") {
+      await configReset()
+    } else {
+      console.log(`Unknown config action: ${action}`)
+      console.log("Available actions: show, setup, validate, edit, reset")
+    }
   })
 
 cli.help()
