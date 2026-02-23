@@ -10,11 +10,68 @@ xxcoder adds a team of specialized AI agents to your Claude Code session. Instea
 |-------|-------|------|
 | xx-oracle | GPT-5.2 | Architecture consultation, code review, complex debugging |
 | xx-developer | GPT-5.3-codex | Autonomous deep implementation |
-| xx-explorer | opencode/kimi-k2.5-free | Fast codebase search, pattern discovery |
-| xx-librarian | opencode/kimi-k2.5-free | Documentation search, GitHub exploration |
+| xx-explorer | opencode/kimi-k2.5 | Fast codebase search, pattern discovery |
+| xx-librarian | opencode/kimi-k2.5 | Documentation search, GitHub exploration |
 | xx-looker | Gemini-3-flash | Screenshot/diagram/PDF analysis |
 | xx-planner | GPT-5.2 | Pre-planning, intent analysis, requirement discovery |
 | xx-reviewer | GPT-5.2 | Plan verification, solution review |
+
+## ✨ New in v0.2.0
+
+- **🎯 Interactive Installation Wizard** - Guided setup with module selection and backend configuration
+- **🔧 Modular Agent Selection** - Choose only the agents you need
+- **⚙️ Configuration Management** - New `xxcoder config` command suite
+- **⚡ Performance Improvements** - 4x faster backend checks with parallel execution
+- **📚 Comprehensive Documentation** - Complete usage guides and design docs
+
+## Quick Start
+
+### Installation
+
+```bash
+# Install globally
+npm install -g .
+
+# Or run directly
+npx xxcoder
+```
+
+### Interactive Setup (Recommended)
+
+```bash
+# Launch interactive installation wizard
+xxcoder init
+```
+
+The wizard will guide you through:
+
+1. **Selecting installation location** (user directory / project directory / custom)
+2. **Choosing agents to install** (select only what you need)
+3. **Configuring backend API keys** (interactive, secure input)
+4. **Verifying your setup** (automatic checks)
+
+### Quick Install (Non-Interactive)
+
+```bash
+# Install all components to user directory
+xxcoder init --user
+
+# Install to project directory
+xxcoder init --project
+```
+
+### Verify Installation
+
+```bash
+# Check backend CLI availability
+xxcoder doctor
+
+# Validate configuration
+xxcoder config validate
+
+# View current configuration
+xxcoder config show
+```
 
 ## Prerequisites
 
@@ -22,15 +79,61 @@ xxcoder requires backend CLIs to communicate with different model providers:
 
 | Backend | Agents | Install |
 |---------|--------|---------|
-| [codex](https://github.com/openai/codex) | oracle, developer | `npm i -g @openai/codex` |
+| [codex](https://github.com/openai/codex) | oracle, developer, planner, reviewer | `npm i -g @openai/codex` |
 | [gemini](https://github.com/google-gemini/gemini-cli) | looker | `npm i -g @google/gemini-cli` |
 | [opencode](https://github.com/opencode-ai/opencode) | explorer, librarian | `go install github.com/opencode-ai/opencode@latest` |
 
-`planner` defaults to `codex` to avoid nested `claude` CLI invocation inside an active Claude Code session.
+**Note**: You only need the backends for the agents you plan to use. The interactive installer will help you configure only what's needed.
 
-`npx xxcoder init` installs the packaged `codeagent-wrapper` binary automatically.
+## Configuration Management
 
-If you're developing this repo and need to rebuild wrapper manually, use Go 1.21+:
+### View Configuration
+
+```bash
+# Show all backends
+xxcoder config show
+
+# Show specific backend
+xxcoder config show --backend codex
+```
+
+### Configure Backend
+
+```bash
+# Interactive configuration
+xxcoder config setup --backend codex
+
+# Edit configuration file directly
+xxcoder config edit
+
+# Validate configuration
+xxcoder config validate
+
+# Reset to defaults
+xxcoder config reset
+```
+
+## Usage
+
+1. **Install and configure**: `xxcoder init`
+2. **Restart Claude Code** to load the new agents
+3. **Activate orchestration**: Type `/xx` in any Claude Code session
+4. **Start working**: Ask questions like "Help me refactor this code"
+
+Sisyphus will automatically route your request to the best agent based on the task type.
+
+## Documentation
+
+- **[CLI Usage Guide](CLI_USAGE_GUIDE.md)** - Complete command reference and examples
+- **[Interactive Install Design](INTERACTIVE_INSTALL_DESIGN.md)** - Design documentation for the installation wizard
+- **[Optimization Summary](OPTIMIZATION_SUMMARY.md)** - Overview of recent improvements
+- **[CLI Improvement Plan](CLI_IMPROVEMENT_PLAN.md)** - Roadmap and future enhancements
+
+## Advanced Topics
+
+### Rebuilding the Wrapper
+
+If you're developing this repo and need to rebuild the wrapper manually (Go 1.21+ required):
 
 ```bash
 cd codeagent-wrapper
@@ -39,32 +142,59 @@ mkdir -p ~/.claude/bin
 cp codeagent-wrapper ~/.claude/bin/
 ```
 
-You only need the backends for the agents you plan to use. Run `xxcoder doctor` to check availability.
-If doctor reports `wrapper INVALID`, the packaged binary architecture is mismatched; rebuild `codeagent-wrapper` locally or replace binaries before reinstalling.
+If `xxcoder doctor` reports `wrapper INVALID`, the packaged binary architecture is mismatched. Rebuild locally or replace binaries before reinstalling.
 
-## Install
+### OpenCode Model IDs
+
+For OpenCode-backed agents, model IDs must use `provider/model` format. Check available IDs:
 
 ```bash
+opencode models
+```
+
+Adjust `~/.codeagent/models.json` if needed.
+
+### Manual Activation
+
+xxcoder does not rely on a global `CLAUDE.md` prompt. Orchestration is activated manually via `/xx` in each session where you want it enabled.
+
+## Troubleshooting
+
+### Agent not working?
+
+```bash
+# 1. Check backend CLIs
+xxcoder doctor
+
+# 2. Validate configuration
+xxcoder config validate
+
+# 3. View configuration details
+xxcoder config show
+
+# 4. Reconfigure if needed
+xxcoder config setup --backend <name>
+```
+
+### Configuration issues?
+
+```bash
+# Edit configuration file
+xxcoder config edit
+
+# Or reset to defaults
+xxcoder config reset
+```
+
+### Need to reinstall?
+
+```bash
+# Uninstall first
+xxcoder uninstall --user
+
+# Then reinstall
 xxcoder init
 ```
-
-If you're running from source without npm publish, install globally first:
-
-```bash
-npm i -g .
-```
-
-For OpenCode-backed agents, model IDs must be `provider/model` format. Check available IDs with `opencode models` and adjust `~/.codeagent/models.json` if needed.
-
-This copies agent definitions, skills, hooks, and config templates to `~/.claude/` and `~/.codeagent/`, and overwrites existing xxcoder files.
-xxcoder does not rely on a global `CLAUDE.md` prompt; orchestration is activated manually via `/xx`.
-
-## Setup
-
-1. **Check backends**: `xxcoder doctor`
-2. **Configure models**: Edit `~/.codeagent/models.json` and fill in your API keys (you can also tune wrapper timeout/log settings in the top-level `wrapper` block)
-3. **Start fresh session**: Restart Claude Code after install
-4. **Enable Sisyphus manually**: Run `/xx` in the session where you want orchestration
 
 ## How it works
 
