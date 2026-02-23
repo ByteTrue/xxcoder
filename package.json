@@ -1,6 +1,6 @@
 {
   "name": "xxcoder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-model agent orchestration for Claude Code — route tasks to GPT, Gemini, Grok, GLM via codeagent-wrapper",
   "type": "module",
   "bin": {
