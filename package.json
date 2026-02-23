@@ -10,8 +10,7 @@
     "bin/",
     "src/",
     "templates/",
-    "binaries/",
-    "codeagent-wrapper/"
+    "binaries/"
   ],
   "keywords": [
     "claude-code",

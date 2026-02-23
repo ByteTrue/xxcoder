@@ -18,23 +18,23 @@ export async function interactive() {
 
   while (true) {
     const action = await select({
-      message: "选择操作:",
+      message: "Select an action:",
       choices: [
         {
-          name: "安装 xxcoder — 覆盖安装 agent 模板和配置到 Claude Code",
+          name: "Install xxcoder — Install agent templates and config to Claude Code",
           value: "init",
         },
         {
-          name: "卸载 xxcoder — 移除 xxcoder 安装的所有文件",
+          name: "Uninstall xxcoder — Remove all xxcoder installed files",
           value: "uninstall",
         },
         {
-          name: "环境检查 (doctor) — 检查后端 CLI 和 wrapper 可用性",
+          name: "Environment check (doctor) — Verify backend CLIs and wrapper availability",
           value: "doctor",
         },
         new Separator(),
         {
-          name: "退出",
+          name: "Exit",
           value: "exit",
         },
       ],

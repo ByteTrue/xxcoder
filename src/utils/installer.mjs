@@ -2,34 +2,7 @@ import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, 
 import { join, dirname, delimiter } from "node:path"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
-
-function detectExecutableFormat(filePath) {
-  const data = readFileSync(filePath)
-  if (data.length < 4) return "unknown"
-
-  // PE/COFF (Windows)
-  if (data[0] === 0x4d && data[1] === 0x5a) return "pe"
-
-  // ELF (Linux)
-  if (data[0] === 0x7f && data[1] === 0x45 && data[2] === 0x4c && data[3] === 0x46) return "elf"
-
-  // Mach-O + fat binaries (macOS)
-  const hex = Buffer.from(data.subarray(0, 4)).toString("hex")
-  const machoMagics = new Set([
-    "feedface", "feedfacf", "cefaedfe", "cffaedfe",
-    "cafebabe", "bebafeca",
-  ])
-  if (machoMagics.has(hex)) return "macho"
-
-  return "unknown"
-}
-
-function expectedExecutableFormat(platform) {
-  if (platform === "win32") return "pe"
-  if (platform === "linux") return "elf"
-  if (platform === "darwin") return "macho"
-  return "unknown"
-}
+import { detectExecutableFormat, expectedExecutableFormat } from "./binary.mjs"
 
 function assertBinaryFormatForPlatform(filePath, platform) {
   const expected = expectedExecutableFormat(platform)

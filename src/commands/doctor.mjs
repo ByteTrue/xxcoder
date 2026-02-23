@@ -4,6 +4,7 @@ import { homedir } from "node:os"
 import { join, delimiter } from "node:path"
 import ansis from "ansis"
 import ora from "ora"
+import { detectExecutableFormat, expectedExecutableFormat } from "../utils/binary.mjs"
 
 const BACKENDS = [
   {
@@ -36,30 +37,6 @@ const BACKENDS = [
   },
 ]
 
-function detectExecutableFormat(filePath) {
-  const data = readFileSync(filePath)
-  if (data.length < 4) return "unknown"
-
-  if (data[0] === 0x4d && data[1] === 0x5a) return "pe"
-  if (data[0] === 0x7f && data[1] === 0x45 && data[2] === 0x4c && data[3] === 0x46) return "elf"
-
-  const hex = Buffer.from(data.subarray(0, 4)).toString("hex")
-  const machoMagics = new Set([
-    "feedface", "feedfacf", "cefaedfe", "cffaedfe",
-    "cafebabe", "bebafeca",
-  ])
-  if (machoMagics.has(hex)) return "macho"
-
-  return "unknown"
-}
-
-function expectedExecutableFormat(platform) {
-  if (platform === "win32") return "pe"
-  if (platform === "linux") return "elf"
-  if (platform === "darwin") return "macho"
-  return "unknown"
-}
-
 function findWrapperInPath() {
   const pathValue = process.env.PATH || ""
   if (!pathValue) return ""
@@ -76,11 +53,27 @@ function findWrapperInPath() {
 }
 
 function readModelsConfig() {
+  const path = join(homedir(), ".codeagent", "models.json")
+
+  // File not found is acceptable
+  if (!existsSync(path)) return null
+
   try {
-    const path = join(homedir(), ".codeagent", "models.json")
-    if (!existsSync(path)) return null
-    return JSON.parse(readFileSync(path, "utf-8"))
-  } catch {
+    const content = readFileSync(path, "utf-8")
+    return JSON.parse(content)
+  } catch (error) {
+    // Distinguish between different error types
+    if (error.code === "EACCES" || error.code === "EPERM") {
+      console.warn(ansis.yellow(`\n  Warning: Cannot read ${path}`))
+      console.warn(ansis.dim(`           Permission denied. Check file permissions.\n`))
+    } else if (error instanceof SyntaxError) {
+      console.warn(ansis.yellow(`\n  Warning: Invalid JSON in ${path}`))
+      console.warn(ansis.dim(`           ${error.message}`))
+      console.warn(ansis.dim(`           Fix the JSON syntax or run 'xxcoder init' to regenerate.\n`))
+    } else {
+      console.warn(ansis.yellow(`\n  Warning: Failed to read ${path}`))
+      console.warn(ansis.dim(`           ${error.message}\n`))
+    }
     return null
   }
 }
@@ -90,32 +83,37 @@ export async function doctor() {
 
   const results = []
 
-  // Check each backend CLI
-  for (const backend of BACKENDS) {
+  // Check all backend CLIs in parallel
+  const backendChecks = BACKENDS.map((backend) => {
     const spinner = ora({ text: `Checking ${backend.name}...`, indent: 2 }).start()
-    try {
-      const output = execFileSync(backend.check[0], backend.check.slice(1), {
-        timeout: 5000,
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      }).trim()
-      const version = output.split("\n")[0].slice(0, 40)
-      spinner.succeed(ansis.green(`${backend.name.padEnd(10)} OK`) + `  ${version}`)
-      results.push({ name: backend.name, status: "ok", detail: version })
-    } catch (error) {
-      if (error.code === "ENOENT") {
-        spinner.fail(ansis.red(`${backend.name.padEnd(10)} MISSING`) + `  (${backend.purpose})`)
-        console.log(ansis.dim(`             Install: ${backend.install}`))
-        results.push({ name: backend.name, status: "missing", detail: backend.purpose })
-      } else if (error.code === "ETIMEDOUT" || error.killed) {
-        spinner.warn(ansis.yellow(`${backend.name.padEnd(10)} TIMEOUT`) + `  (${backend.purpose})`)
-        results.push({ name: backend.name, status: "timeout", detail: backend.purpose })
-      } else {
-        spinner.fail(ansis.red(`${backend.name.padEnd(10)} ERROR`) + `  (${error.message})`)
-        results.push({ name: backend.name, status: "error", detail: error.message })
+    return (async () => {
+      try {
+        const output = execFileSync(backend.check[0], backend.check.slice(1), {
+          timeout: 5000,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+        }).trim()
+        const version = output.split("\n")[0].slice(0, 40)
+        spinner.succeed(ansis.green(`${backend.name.padEnd(10)} OK`) + `  ${version}`)
+        return { name: backend.name, status: "ok", detail: version }
+      } catch (error) {
+        if (error.code === "ENOENT") {
+          spinner.fail(ansis.red(`${backend.name.padEnd(10)} MISSING`) + `  (${backend.purpose})`)
+          console.log(ansis.dim(`             Install: ${backend.install}`))
+          return { name: backend.name, status: "missing", detail: backend.purpose }
+        } else if (error.code === "ETIMEDOUT" || error.killed) {
+          spinner.warn(ansis.yellow(`${backend.name.padEnd(10)} TIMEOUT`) + `  (${backend.purpose})`)
+          return { name: backend.name, status: "timeout", detail: backend.purpose }
+        } else {
+          spinner.fail(ansis.red(`${backend.name.padEnd(10)} ERROR`) + `  (${error.message})`)
+          return { name: backend.name, status: "error", detail: error.message }
+        }
       }
-    }
-  }
+    })()
+  })
+
+  const backendResults = await Promise.all(backendChecks)
+  results.push(...backendResults)
 
   // Check codeagent-wrapper
   const wrapperSpinner = ora({ text: "Checking wrapper...", indent: 2 }).start()
