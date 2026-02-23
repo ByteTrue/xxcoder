@@ -130,7 +130,7 @@ export async function doctor() {
     try {
       actual = detectExecutableFormat(wrapperFound)
     } catch {
-      actual = "unknown"
+      // keep default "unknown"
     }
 
     if (expected !== "unknown" && actual !== expected) {

@@ -17,9 +17,6 @@ import {
   MODULES,
   getRequiredBackends,
   getAgentsUsingBackend,
-  getComponentsToInstall,
-  getDefaultAgentSelection,
-  getDefaultOptionalSelection,
 } from "../utils/modules.mjs"
 import { runBackendConfigWizard } from "../utils/config-wizard.mjs"
 
@@ -421,12 +418,6 @@ export async function init({ installDir = "", interactive = true, skipConfig = f
 // Legacy non-interactive installation (for --user, --project flags)
 async function initLegacy({ installDir }) {
   const dest = installDir || getDefaultInstallDir()
-
-  // Install all agents (legacy behavior)
-  const selectedModules = {
-    agents: getDefaultAgentSelection(),
-    optional: getDefaultOptionalSelection(),
-  }
 
   const totalSteps = 7
   console.log(ansis.dim(`\nInstalling to ${ansis.cyan(dest)} (overwrite mode)`))

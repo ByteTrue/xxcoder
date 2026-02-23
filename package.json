@@ -33,13 +33,32 @@
   "bugs": {
     "url": "https://github.com/ByteTrue/xxcoder/issues"
   },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:go": "cd codeagent-wrapper && make test",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "lint:go": "cd codeagent-wrapper && make lint",
+    "test:all": "npm run lint && npm test && npm run test:go",
+    "prepare": "husky"
+  },
   "engines": {
     "node": ">=18.3.0"
   },
   "dependencies": {
+    "@inquirer/select": "^5.1.0",
     "ansis": "^4.2.0",
     "cac": "^6.7.14",
     "inquirer": "^13.2.2",
     "ora": "^9.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.1",
+    "eslint-plugin-n": "^17.24.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "vitest": "^4.0.18"
   }
 }

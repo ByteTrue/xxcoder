@@ -1,4 +1,4 @@
-import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync, unlinkSync } from "node:fs"
+import { copyFileSync, chmodSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, unlinkSync } from "node:fs"
 import { join, dirname, delimiter } from "node:path"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"

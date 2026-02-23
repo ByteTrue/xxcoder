@@ -1,0 +1,18 @@
+# Source & dev
+codeagent-wrapper/
+test/
+docs/
+.github/
+.husky/
+.claude/
+
+# Config
+eslint.config.mjs
+.lintstagedrc.json
+.gitattributes
+CLAUDE.md
+
+# Misc
+*.tgz
+.DS_Store
+.env*
